@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net5.0</TargetFramework>
+    <Authors>Mike Davis</Authors>
+    <Copyright>Copyright (c) 2021 Mike Davis</Copyright>
+    <PackageProjectUrl>https://github.com/Ernegien/xdecode</PackageProjectUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommandLineParser.FSharp" Version="2.9.0-preview1" />
+  </ItemGroup>
+
+</Project>
