@@ -13,11 +13,11 @@ namespace xdecode
         /// <summary>
         /// Shows the location label; used for locations referred to by Jcc opcodes.
         /// </summary>
-        ShowLocationLabel = 1 << 1,
+        ShowLocationLabel = 1 << 0,
 
         /// <summary>
         /// Hides the jump label; used for out-of-bounds jumps.
         /// </summary>
-        HideJumpLabel = 1 << 2
+        HideJumpLabel = 1 << 1
     }
 }
