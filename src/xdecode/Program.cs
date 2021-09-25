@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace xdecode
 {
@@ -22,6 +23,7 @@ namespace xdecode
                 {
                     _options.Input = o.Input;
                     _options.Output = o.Output;
+                    _options.Comments = o.Comments;
                 });
 
             const int xcodeStart = 0x80;
@@ -29,6 +31,23 @@ namespace xdecode
             // input file is required
             if (string.IsNullOrWhiteSpace(_options.Input))
                 return;
+
+            // parse comments file if specified
+            List<(Regex, string)> comments = new();
+            if (!string.IsNullOrWhiteSpace(_options.Comments) && File.Exists(_options.Comments))
+            {
+                foreach (var line in File.ReadAllLines(_options.Comments))
+                {
+                    if (string.IsNullOrWhiteSpace(line))
+                        continue;
+
+                    var items = line.Split('\t', StringSplitOptions.RemoveEmptyEntries);
+                    if (items.Length != 2)
+                        throw new FormatException(line);
+
+                    comments.Add((new Regex(items[0], RegexOptions.IgnoreCase | RegexOptions.Compiled), items[1]));
+                }
+            }
 
             // open the file
             using Stream stream = File.Open(_options.Input, FileMode.Open, FileAccess.Read, FileShare.Read);
@@ -46,11 +65,11 @@ namespace xdecode
             int sampleSize = 100;
             int skipCount = 2;
             int xCodeOffset = xcodeStart + skipCount * XCode.Size;
-            List<(OpcodeVersion, float)> versions = new()
+            List<(OpcodeVersion, int)> versions = new()
             {
-                (OpcodeVersion.EarlyDebug, Decode(OpcodeVersion.EarlyDebug, reader, xCodeOffset, sampleSize).Count(x => x.Opcode.IsValid) / (float)sampleSize),
-                (OpcodeVersion.LateDebug, Decode(OpcodeVersion.LateDebug, reader, xCodeOffset, sampleSize).Count(x => x.Opcode.IsValid) / (float)sampleSize),
-                (OpcodeVersion.Retail, Decode(OpcodeVersion.Retail, reader, xCodeOffset, sampleSize).Count(x => x.Opcode.IsValid) / (float)sampleSize)
+                (OpcodeVersion.EarlyDebug, Decode(OpcodeVersion.EarlyDebug, reader, xCodeOffset, sampleSize).Count(x => x.Opcode.IsValid)),
+                (OpcodeVersion.LateDebug, Decode(OpcodeVersion.LateDebug, reader, xCodeOffset, sampleSize).Count(x => x.Opcode.IsValid)),
+                (OpcodeVersion.Retail, Decode(OpcodeVersion.Retail, reader, xCodeOffset, sampleSize).Count(x => x.Opcode.IsValid))
             };
             versions.Sort((x, y) => y.Item2.CompareTo(x.Item2));
 
@@ -93,7 +112,33 @@ namespace xdecode
                     output.AppendFormat("; !!! {0} !!!\r\n", v);
                 }
 
-                output.AppendLine(x.ToString());
+                string command = x.ToString();
+                output.Append(command);
+
+                if (!string.IsNullOrWhiteSpace(_options.Comments))
+                {
+                    // get matches
+                    List<string> matchedComments = new();
+                    foreach (var comment in comments)
+                    {
+                        if (comment.Item1.IsMatch(command))
+                        {
+                            matchedComments.Add(comment.Item2);
+                        }
+                    }
+
+                    // add comments
+                    if (matchedComments.Count > 0)
+                    {
+                        output.AppendFormat("{0}", new string(' ', maxColumns - command.Length + 8));
+                        foreach (var c in matchedComments)
+                        {
+                            output.AppendFormat(" ; {0}", c);
+                        }
+                    }
+                }
+
+                output.AppendLine();
             }
 
             // write the output to file or console

@@ -9,5 +9,8 @@ namespace xdecode
 
         [Option('o', "output", Required = false, HelpText = "The file path of decoded output; will be printed to the console if unspecified.")]
         public string Output { get; set; }
+
+        [Option('c', "comments", Required = false, HelpText = "The file path of a tab-delimited pair of regex and comment text.")]
+        public string Comments { get; set; }
     }
 }
