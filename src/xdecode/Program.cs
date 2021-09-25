@@ -26,6 +26,10 @@ namespace xdecode
 
             const int xcodeStart = 0x80;
 
+            // input file is required
+            if (string.IsNullOrWhiteSpace(_options.Input))
+                return;
+
             // open the file
             using Stream stream = File.Open(_options.Input, FileMode.Open, FileAccess.Read, FileShare.Read);
             using BinaryReader reader = new(stream);
