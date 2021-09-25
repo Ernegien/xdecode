@@ -38,7 +38,7 @@ namespace xdecode
         /// <summary>
         /// The options.
         /// </summary>
-        public XCodeFlags Options { get; set; } = 0;
+        public XCodeFlags Options { get; set; }
 
         public XCode(BinaryReader reader, int offset, OpcodeVersion version = OpcodeVersion.Retail)
         {
@@ -171,7 +171,7 @@ namespace xdecode
             return Opcode.Type switch
             {
                 OpcodeType.MemRead or OpcodeType.PciRead or OpcodeType.IoRead => string.Format("{0} 0x{1:X8}", Opcode, OperandOne, OperandTwo),
-                OpcodeType.Chain => string.Format("{0} {1} 0x{2:X8}", Opcode, new Opcode((byte)OperandOne, Version).ToString().Replace("xc_", "op_"), OperandTwo),
+                OpcodeType.Chain => string.Format("{0} {1}, 0x{2:X8}", Opcode, new Opcode((byte)OperandOne, Version).ToString().Replace("xc_", "op_"), OperandTwo),
                 OpcodeType.Jne => Options.HasFlag(XCodeFlags.HideJumpLabel) ?
                     string.Format("{0} 0x{1:X8}, 0x{2:X8}", Opcode, OperandOne, OperandTwo) :
                     string.Format("{0} 0x{1:X8}, loc_{2:X}", Opcode, OperandOne, Offset + Size + (int)OperandTwo),
