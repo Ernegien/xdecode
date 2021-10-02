@@ -2,19 +2,37 @@
 {
     public class Opcode
     {
+        /// <summary>
+        /// The opcode version.
+        /// </summary>
+        public OpcodeVersion Version { get; private set; }
+
+        /// <summary>
+        /// The opcode type.
+        /// </summary>
         public OpcodeType Type { get; private set; }
 
+        /// <summary>
+        /// The opcode value.
+        /// </summary>
         public byte Value { get; private set; }
 
-        // TODO: bi-directional dictionary bindings for different opcode versions (assuming multiple values don't map to the same opcode per version)
+        /// <summary>
+        /// Returns true if the opcode does something, otherwise it's treated as a NOP by the MCPX interpreter.
+        /// </summary>
+        public bool IsValid => (int)Type >= (int)OpcodeType.MemRead && (int)Type <= (int)OpcodeType.Exit;
 
-        public bool IsValid => (int)Type >= 0x100 && (int)Type <= 0x10B;
-
+        /// <summary>
+        /// Creates an opcode of specified value and version.
+        /// </summary>
+        /// <param name="value"></param>
+        /// <param name="version"></param>
         public Opcode(byte value, OpcodeVersion version = OpcodeVersion.Retail)
         {
             Value = value;
+            Version = version;
 
-            switch(version)
+            switch (version)
             {
                 case OpcodeVersion.Retail:
                     Type = value switch
@@ -72,69 +90,10 @@
             }
         }
 
-        public Opcode(OpcodeType type, OpcodeVersion version = OpcodeVersion.Retail)
-        {
-            Type = type;
-
-            switch (version)
-            {
-                case OpcodeVersion.Retail:
-                    Value = type switch
-                    {
-                        OpcodeType.MemRead => 0x02,
-                        OpcodeType.MemWrite => 0x03,
-                        OpcodeType.PciWrite => 0x04,
-                        OpcodeType.PciRead => 0x05,
-                        OpcodeType.AndOr => 0x06,
-                        OpcodeType.Chain => 0x07,
-                        OpcodeType.Jne => 0x08,
-                        OpcodeType.Jmp => 0x09,
-                        OpcodeType.AndOrEbp => 0x10,
-                        OpcodeType.IoWrite => 0x11,
-                        OpcodeType.IoRead => 0x12,
-                        OpcodeType.Exit => 0xEE,
-                        _ => (byte)type
-                    };
-                    break;
-                case OpcodeVersion.EarlyDebug:
-                    Value = type switch
-                    {
-                        OpcodeType.MemRead => 0x9A,
-                        OpcodeType.MemWrite => 0x5B,
-                        OpcodeType.PciWrite => 0xF9,
-                        OpcodeType.PciRead => 0xF5,
-                        OpcodeType.AndOr => 0xED,
-                        OpcodeType.Chain => 0x68,
-                        OpcodeType.Jne => 0x04,
-                        OpcodeType.Jmp => 0x2,
-                        OpcodeType.AndOrEbp => 0x6C,
-                        OpcodeType.IoWrite => 0x3C,
-                        OpcodeType.IoRead => 0xC8,
-                        OpcodeType.Exit => 0xBF,
-                        _ => (byte)type
-                    };
-                    break;
-                case OpcodeVersion.LateDebug:
-
-                    Value = type switch
-                    {
-                        OpcodeType.MemRead => 0x09,
-                        OpcodeType.MemWrite => 0x03,
-                        OpcodeType.PciWrite => 0x01,
-                        OpcodeType.PciRead => 0x05,
-                        OpcodeType.AndOr => 0x06,
-                        OpcodeType.Chain => 0xE1,
-                        OpcodeType.Jne => 0x04,
-                        OpcodeType.Jmp => 0x07,
-                        OpcodeType.IoWrite => 0x02,
-                        OpcodeType.IoRead => 0x08,
-                        OpcodeType.Exit => 0xEE,
-                        _ => (byte)type
-                    };
-                    break;
-            }
-        }
-
+        /// <summary>
+        /// Returns the string representation of the opcode.
+        /// </summary>
+        /// <returns></returns>
         public override string ToString()
         {
             return Type switch

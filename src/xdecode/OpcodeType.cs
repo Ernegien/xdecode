@@ -5,7 +5,7 @@
         /// <summary>
         /// Reads 4 bytes of data from the memory address specified in the first operand.
         /// </summary>
-        MemRead = 0x100,    // set a base that won't conflict with opcode values themselves
+        MemRead = 0x100,    // set a base that won't conflict with opcode values themselves when determining validity
 
         /// <summary>
         /// Writes 4 bytes of data specified in the second operand to the memory address specified in the first operand.

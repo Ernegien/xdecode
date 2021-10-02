@@ -26,31 +26,38 @@ namespace xdecode
                     _options.Comments = o.Comments;
                 });
 
-            const int xcodeStart = 0x80;
-
             // input file is required
             if (string.IsNullOrWhiteSpace(_options.Input))
                 return;
 
-            // parse comments file if specified
-            List<(Regex, string)> comments = new();
-            if (!string.IsNullOrWhiteSpace(_options.Comments) && File.Exists(_options.Comments))
+            // extract xcodes
+            List<XCode> xCodes = ExtractXCodes(_options.Input);
+
+            // generate output text
+            string output = GenerateOutputText(xCodes, _options.Comments);
+
+            // write the output to file or console
+            if (!string.IsNullOrWhiteSpace(_options.Output))
             {
-                foreach (var line in File.ReadAllLines(_options.Comments))
-                {
-                    if (string.IsNullOrWhiteSpace(line))
-                        continue;
-
-                    var items = line.Split('\t', StringSplitOptions.RemoveEmptyEntries);
-                    if (items.Length != 2)
-                        throw new FormatException(line);
-
-                    comments.Add((new Regex(items[0], RegexOptions.IgnoreCase | RegexOptions.Compiled), items[1]));
-                }
+                File.WriteAllText(_options.Output, output);
             }
+            else
+            {
+                Console.Write(output);
+            }
+        }
+
+        /// <summary>
+        /// Extracts x-codes from a bios image.
+        /// </summary>
+        /// <param name="biosImagePath"></param>
+        /// <returns></returns>
+        private static List<XCode> ExtractXCodes(string biosImagePath)
+        {
+            const int xcodeStart = 0x80;
 
             // open the file
-            using Stream stream = File.Open(_options.Input, FileMode.Open, FileAccess.Read, FileShare.Read);
+            using Stream stream = File.Open(biosImagePath, FileMode.Open, FileAccess.Read, FileShare.Read);
             using BinaryReader reader = new(stream);
 
             // validate length
@@ -76,7 +83,7 @@ namespace xdecode
             // decode the x-codes
             List<XCode> xCodes = Decode(versions.First().Item1, reader, xcodeStart);
 
-            // "generate" labels for jump opcodes
+            // set labels for jump opcodes and their destinations
             for (int i = 0; i < xCodes.Count; i++)
             {
                 XCode x = xCodes[i];
@@ -97,59 +104,7 @@ namespace xdecode
                 }
             }
 
-            // scan all x-codes to determine longest text
-            int maxColumns = xCodes.Max(x => x.ToString().Length);
-
-            // generate the output x-code text
-            StringBuilder output = new();
-            foreach (var x in xCodes)
-            {
-                if (x.Options.HasFlag(XCodeFlags.ShowLocationLabel))
-                    output.AppendFormat("loc_{0:X}:\r\n", x.Offset);
-
-                foreach (var v in x.Validate())
-                {
-                    output.AppendFormat("; !!! {0} !!!\r\n", v);
-                }
-
-                string command = x.ToString();
-                output.Append(command);
-
-                if (!string.IsNullOrWhiteSpace(_options.Comments))
-                {
-                    // get matches
-                    List<string> matchedComments = new();
-                    foreach (var comment in comments)
-                    {
-                        if (comment.Item1.IsMatch(command))
-                        {
-                            matchedComments.Add(comment.Item2);
-                        }
-                    }
-
-                    // add comments
-                    if (matchedComments.Count > 0)
-                    {
-                        output.AppendFormat("{0}", new string(' ', maxColumns - command.Length + 8));
-                        foreach (var c in matchedComments)
-                        {
-                            output.AppendFormat(" ; {0}", c);
-                        }
-                    }
-                }
-
-                output.AppendLine();
-            }
-
-            // write the output to file or console
-            if (!string.IsNullOrWhiteSpace(_options.Output))
-            {
-                File.WriteAllText(_options.Output, output.ToString());
-            }
-            else
-            {
-                Console.Write(output.ToString());
-            }
+            return xCodes;
         }
 
         /// <summary>
@@ -175,6 +130,78 @@ namespace xdecode
             } while (xc.Opcode.Type != OpcodeType.Exit && xCodes.Count < max);
 
             return xCodes;
+        }
+
+        /// <summary>
+        /// Generates the output text.
+        /// </summary>
+        /// <param name="xCodes"></param>
+        /// <param name="commentsFilePath"></param>
+        /// <returns></returns>
+        private static string GenerateOutputText(List<XCode> xCodes, string commentsFilePath)
+        {
+            // parse comments file if specified
+            List<(Regex, string)> comments = new();
+            if (!string.IsNullOrWhiteSpace(commentsFilePath) && File.Exists(commentsFilePath))
+            {
+                foreach (var line in File.ReadAllLines(commentsFilePath))
+                {
+                    if (string.IsNullOrWhiteSpace(line))
+                        continue;
+
+                    var items = line.Split('\t', StringSplitOptions.RemoveEmptyEntries);
+                    if (items.Length != 2)
+                        throw new FormatException(line);
+
+                    comments.Add((new Regex(items[0], RegexOptions.IgnoreCase | RegexOptions.Compiled), items[1]));
+                }
+            }
+
+            // scan all x-codes to determine longest text for comment positioning
+            int maxColumns = xCodes.Max(x => x.ToString().Length);
+
+            // generate the output x-code text
+            StringBuilder output = new();
+            foreach (var x in xCodes)
+            {
+                if (x.Options.HasFlag(XCodeFlags.ShowLocationLabel))
+                    output.AppendFormat("loc_{0:X}:\r\n", x.Offset);
+
+                foreach (var v in x.Validate())
+                {
+                    output.AppendFormat("; !!! {0} !!!\r\n", v);
+                }
+
+                string command = x.ToString();
+                output.Append(command);
+
+                if (comments.Count > 0)
+                {
+                    // get matches
+                    List<string> matchedComments = new();
+                    foreach (var comment in comments)
+                    {
+                        if (comment.Item1.IsMatch(command))
+                        {
+                            matchedComments.Add(comment.Item2);
+                        }
+                    }
+
+                    // add comments
+                    if (matchedComments.Count > 0)
+                    {
+                        output.AppendFormat("{0}", new string(' ', maxColumns - command.Length + 8));
+                        foreach (var c in matchedComments)
+                        {
+                            output.AppendFormat(" ; {0}", c);
+                        }
+                    }
+                }
+
+                output.AppendLine();
+            }
+
+            return output.ToString();
         }
 
         /// <summary>

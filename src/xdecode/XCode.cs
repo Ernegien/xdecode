@@ -11,11 +11,6 @@ namespace xdecode
         public const int Size = 9;
 
         /// <summary>
-        /// The opcode version.
-        /// </summary>
-        public OpcodeVersion Version { get; private set; }
-
-        /// <summary>
         /// The opcode.
         /// </summary>
         public Opcode Opcode { get; private set; }
@@ -42,7 +37,6 @@ namespace xdecode
 
         public XCode(BinaryReader reader, int offset, OpcodeVersion version = OpcodeVersion.Retail)
         {
-            Version = version;
             Offset = offset;
             Opcode = new Opcode(reader.ReadByte(), version);
 
@@ -117,7 +111,7 @@ namespace xdecode
                     if (OperandOne >> 8 != 0)
                         issues.Add("Upper 24 bits of first operand will be ignored.");
 
-                    switch (new Opcode((byte)OperandOne, Version).Type)
+                    switch (new Opcode((byte)OperandOne, Opcode.Version).Type)
                     {
                         case OpcodeType.MemWrite:   // xc_mem_write OperandTwo Accumulator
                         case OpcodeType.PciWrite:   // xc_pci_write OperandTwo Accumulator
@@ -171,7 +165,7 @@ namespace xdecode
             return Opcode.Type switch
             {
                 OpcodeType.MemRead or OpcodeType.PciRead or OpcodeType.IoRead => string.Format("{0} 0x{1:X8}", Opcode, OperandOne, OperandTwo),
-                OpcodeType.Chain => string.Format("{0} {1}, 0x{2:X8}", Opcode, new Opcode((byte)OperandOne, Version).ToString().Replace("xc_", "op_"), OperandTwo),
+                OpcodeType.Chain => string.Format("{0} {1}, 0x{2:X8}", Opcode, new Opcode((byte)OperandOne, Opcode.Version).ToString().Replace("xc_", "op_"), OperandTwo),
                 OpcodeType.Jne => Options.HasFlag(XCodeFlags.HideJumpLabel) ?
                     string.Format("{0} 0x{1:X8}, 0x{2:X8}", Opcode, OperandOne, OperandTwo) :
                     string.Format("{0} 0x{1:X8}, loc_{2:X}", Opcode, OperandOne, Offset + Size + (int)OperandTwo),
