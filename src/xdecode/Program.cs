@@ -93,9 +93,18 @@ namespace xdecode
                     // jump location should point to the start of an x-code
                     int jumpOffset = XCode.Size + (int)x.OperandTwo;
                     int jumpIndex = i + jumpOffset / XCode.Size;
-                    if (jumpOffset % XCode.Size > 0 || jumpIndex < 0 || jumpIndex > xCodes.Count)
+
+                    // misaligned target — cannot be represented symbolically
+                    if (jumpOffset % XCode.Size > 0)
                     {
                         xCodes[i].Options |= XCodeFlags.HideJumpLabel;
+                        continue;
+                    }
+
+                    // aligned but outside the decoded list — emit a dangling stub label
+                    if (jumpIndex < 0 || jumpIndex >= xCodes.Count)
+                    {
+                        xCodes[i].Options |= XCodeFlags.OutOfBoundsJump;
                         continue;
                     }
 
@@ -115,19 +124,18 @@ namespace xdecode
         /// <param name="offset">The offset within the stream to begin reading.</param>
         /// <param name="max">The maximum number of X-Codes to process.</param>
         /// <returns></returns>
-        private static List<XCode> Decode(OpcodeVersion version, BinaryReader reader, int offset, int max = 2000)
+        private static List<XCode> Decode(OpcodeVersion version, BinaryReader reader, int offset, int max = 2000000)
         {
             // decode the x-codes
             List<XCode> xCodes = new();
             reader.BaseStream.Seek(offset, SeekOrigin.Begin);
-            XCode xc;
-            do
+            while (xCodes.Count < max && reader.BaseStream.Position + XCode.Size <= reader.BaseStream.Length)
             {
-                xc = new XCode(reader, (int)reader.BaseStream.Position, version);
+                XCode xc = new XCode(reader, (int)reader.BaseStream.Position, version);
                 xCodes.Add(xc);
-
-                // BUG: scans until exit code which doesn't necessarily have to be at the end
-            } while (xc.Opcode.Type != OpcodeType.Exit && xCodes.Count < max);
+                if (xc.Opcode.Type == OpcodeType.Exit)
+                    break;
+            }
 
             return xCodes;
         }
@@ -199,6 +207,21 @@ namespace xdecode
                 }
 
                 output.AppendLine();
+            }
+
+            // emit stubs for jumps that resolve outside the decoded xcode list
+            List<XCode> outOfBoundsJumps = xCodes.Where(x => x.Options.HasFlag(XCodeFlags.OutOfBoundsJump)).ToList();
+            if (outOfBoundsJumps.Count > 0)
+            {
+                output.AppendLine();
+                output.AppendLine("; === out-of-bounds jump targets ===");
+                HashSet<int> seen = new();
+                foreach (var x in outOfBoundsJumps)
+                {
+                    int target = x.Offset + XCode.Size + (int)x.OperandTwo;
+                    if (seen.Add(target))
+                        output.AppendFormat("loc_{0:X}:  ; !! out of bounds !!\r\n", target);
+                }
             }
 
             return output.ToString();

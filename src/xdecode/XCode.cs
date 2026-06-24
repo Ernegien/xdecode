@@ -85,13 +85,9 @@ namespace xdecode
                 case OpcodeType.Jmp:
                     if (OperandOne != 0)
                         issues.Add("First operand will be ignored.");
-                    if ((int)OperandTwo == -1 || (int)OperandTwo % Size != 0)
-                        issues.Add(string.Format("Second operand should be a multiple of {0}.", Size));
                     break;
 
                 case OpcodeType.Jne:
-                    if ((int)OperandTwo == -1 || (int)OperandTwo % Size != 0)
-                        issues.Add(string.Format("Second operand should be a multiple of {0}.", Size));
                     break;
 
                 case OpcodeType.Exit:
